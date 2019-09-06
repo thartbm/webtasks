@@ -1,0 +1,219 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Rocket Rotation</title>
+
+  <script src="pixi/pixi.min.js"></script>
+
+  <script src="tink/tink.js"></script>
+
+  <style>
+    html, body, canvas, p { margin:0; padding:0; border:0 none; }
+    canvas { background:Black; display: block; }
+  </style>
+
+</head>
+<body>
+
+  <p id='startbuttons'>
+
+  How do you want to start the experiment?</br>
+  Please don't change the window during the experiment... it will be restarted.</br>
+
+  <input id="startFullscreenButton" type="button" value="fullscreen" onclick="startFullscreen();" />
+  <input id="startFullwindowButton" type="button" value="browser window" onclick="startFullwindow();" />
+
+  </p>
+
+  <script type="text/javascript">
+
+    let type = "WebGL"
+    if(!PIXI.utils.isWebGLSupported()){
+      type = "canvas"
+    }
+
+    PIXI.utils.sayHello(type)
+
+    //create variables used in more than 1 function:
+    let cursor, pointer;
+
+    //Create a Pixi Application
+    let app = new PIXI.Application({width: 0, height: 0});
+
+    //Add the canvas that Pixi automatically created for you to the HTML document
+    document.body.appendChild(app.view);
+
+    // create tink instance and attach to the pixi stage
+    let tink = new Tink(PIXI, app.view);
+
+    // change the background color:
+    app.renderer.backgroundColor = 0x770077;
+
+    // resize the app/canvas
+    app.renderer.autoDensity = true;
+    //app.renderer.resize(512, 512);
+
+
+    // load an image:
+    PIXI.Loader.shared
+      .add("images/cursor_4.png")
+      .load(setup);
+    // the setup function will be run after loading the image
+
+
+    // this is the setup function:
+    function setup() {
+      // we create a sprite from the loaded image
+      cursor = new PIXI.Sprite(
+        PIXI.Loader.shared.resources["images/cursor_4.png"].texture
+      );
+
+      // add image to the stage
+      app.stage.addChild(cursor);
+      cursor.anchor.x = 0.5;
+      cursor.anchor.y = 0.5;
+      cursor.x = 256;
+      cursor.y = 256;
+
+      pointer = tink.makePointer();
+      pointer.visible = false;
+
+    }
+
+    function gameLoop(){
+
+      //Start the loop
+      requestAnimationFrame(gameLoop);
+
+      //Update Tink
+      tink.update();
+
+      //Optionally, you probably also want to render your root Pixi
+      //container, the `stage` object, in this loop:
+      //app.renderer.render(stage);
+
+      // update cursor position?
+      pointerPosition = [pointer.x, pointer.y];
+      rotationCentre = [app.renderer.width/2, app.renderer.height/2];
+      rotatedPointer = rotatePointer(pointerPosition, rotationCentre, (30/180)*Math.PI);
+      cursor.x = rotatedPointer[0];
+      cursor.y = rotatedPointer[1];
+
+      app.renderer.render(stage);
+    }
+
+    //gameLoop();
+
+    function rotatePointer(pointerPosition, rotationCentre, theta){
+      rotmat = [[Math.cos(theta),-1*Math.sin(theta)],[Math.sin(theta),Math.cos(theta)]];
+      position = [[pointerPosition[0]-rotationCentre[0]],[pointerPosition[1]-rotationCentre[1]]];
+      rotpos = multiplyMatrices(rotmat, position);
+      newpos = [rotpos[0][0]+rotationCentre[0],rotpos[1][0]+rotationCentre[1]];
+      return(newpos);
+    }
+
+    // from https://stackoverflow.com/questions/27205018/multiply-2-matrices-in-javascript
+    function multiplyMatrices(m1, m2) {
+      var result = [];
+      for (var i = 0; i < m1.length; i++) {
+        result[i] = [];
+        for (var j = 0; j < m2[0].length; j++) {
+          var sum = 0;
+          for (var k = 0; k < m1[0].length; k++) {
+            sum += m1[i][k] * m2[k][j];
+          }
+          result[i][j] = sum;
+        }
+      }
+      return result;
+    }
+
+
+    function startFullscreen() {
+
+      document.getElementById("startbuttons").innerHTML = "";
+
+
+      var value = false;
+      try {
+        //canvas.width = screen.availWidth;
+        //canvas.height = screen.availHeight;
+
+
+        //if (app.view.requestFullscreen) {
+        //  //alert('generic');
+        //  app.view.requestFullscreen();
+        //  value = true;
+        //} else if (app.view.mozRequestFullScreen) { /* Firefox */
+        //  //alert('mozilla');
+        //  app.view.mozRequestFullScreen();
+        //  value = true;
+        //} else if (app.view.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
+        //  //alert('webkit');
+        //  app.view.webkitRequestFullscreen();
+        //  value = true;
+        //} else if (app.view.msRequestFullscreen) { /* IE/Edge */
+        //  //alert('ms');
+        //  app.view.msRequestFullscreen();
+        //  value = true;
+        //}
+
+        requestFullScreen(document);
+
+        //requestFullScreen(app.view);
+
+        app.renderer.resize(screen.availWidth, screen.availHeight);
+
+        pointer.visible = false;
+        gameLoop();
+        value = true;
+
+      }
+      catch(err) {
+        // opening full screen didn't work...
+        value = false;
+        // trying full window instead:
+        startFullwindow();
+      }
+      finally {
+        return value;
+      }
+
+
+    }
+
+    function startFullwindow() {
+
+      document.getElementById("startbuttons").innerHTML = "";
+      app.renderer.resize(window.innerWidth, window.innerHeight);
+      pointer.visible = false;
+      gameLoop();
+
+    }
+
+    function wait(ms){
+      let start = new Date().getTime();
+      let end = start;
+      while(end < start + ms) {
+        end = new Date().getTime();
+      }
+    }
+
+    function requestFullScreen(element) {
+      // Supports most browsers and their versions.
+      var requestMethod = element.requestFullScreen || element.webkitRequestFullScreen || element.mozRequestFullScreen || element.msRequestFullScreen;
+
+      if (requestMethod) { // Native full screen.
+        requestMethod.call(element);
+      } else if (typeof window.ActiveXObject !== "undefined") { // Older IE.
+        var wscript = new ActiveXObject("WScript.Shell");
+        if (wscript !== null) {
+          wscript.SendKeys("{F11}");
+        }
+      }
+    }
+
+  </script>
+</body>
+</html>
